@@ -1,0 +1,1019 @@
+<!DOCTYPE html>
+<html lang="ko" data-bs-theme="dark">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>웹 전용 나레이션 시스템 V23.1.9 (일괄 변경 기능 삭제, 0ms 유지)</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+    <style>
+        /* 기존 스타일 */
+        .voice-select { min-width: 220px; }
+        .input-group-text { width: 90px; }
+        .slider-label { font-size: 12px; display: flex; justify-content: space-between; align-items: center;}
+        .note-small { font-size: 12px; color: #9aa0a6; }
+        
+        /* 캐릭터 카드 스타일 (색상 코딩 유지) */
+        .character-card { margin-bottom: 15px; border-left: 6px solid #0d6efd; }
+        .char-color-0.character-card { border-left-color: #0d6efd !important; } 
+        .char-color-1.character-card { border-left-color: #20c997 !important; }
+        .char-color-2.character-card { border-left-color: #ffc107 !important; }
+
+        /* 대본 에디터 스타일 */
+        #script-editor {
+            border: 1px solid #495057; 
+            min-height: 200px;
+            overflow-y: auto;
+            border-radius: 0.375rem;
+            background-color: #212529; 
+            color: #f8f9fa; 
+            padding: 1rem;
+            cursor: default; 
+        }
+
+        /* 잠금 해제 상태의 커서 */
+        #script-editor[contenteditable="true"] {
+             cursor: text;
+        }
+        
+        /* 문장별 단락 스타일 */
+        #script-editor p {
+            margin: 0;
+            padding: 2px 0;
+            line-height: 1.6;
+            border-left: 3px solid transparent;
+            padding-left: 8px;
+            transition: border-left 0.2s;
+        }
+
+        /* 문장별 캐릭터 색상 표시 */
+        .char-color-0 { border-left-color: #0d6efd !important; }
+        .char-color-1 { border-left-color: #20c997 !important; }
+        .char-color-2 { border-left-color: #ffc107 !important; }
+
+        /* 실시간 단어 하이라이트 스타일 */
+        .highlight {
+            background-color: rgba(255, 255, 0, 0.4); 
+            color: #000; 
+            border-radius: 3px;
+            padding: 2px 3px;
+            display: inline;
+        }
+        
+        /* 현재 문장 배경 강조 스타일 */
+        .current-line {
+            background-color: rgba(13, 110, 253, 0.2);
+            border-radius: 5px;
+            margin: 5px -5px; 
+            padding-left: 10px !important; 
+        }
+
+        /* 버튼 상태 시각화를 위한 스타일 */
+        #play-btn.playing { background-color: #007bff; border-color: #007bff; }
+        #pause-btn.playing { background-color: #ffc107; border-color: #ffc107; }
+        #stop-btn.playing { opacity: 0.7; }
+        
+        /* 💡 사이드바 스타일 추가 */
+        .sidebar {
+            padding: 1rem;
+            border-radius: 0.5rem;
+            height: 100%;
+            background-color: #2b3035; /* Darker background for distinction */
+            color: #f8f9fa;
+        }
+        .sidebar h5 {
+            border-bottom: 1px solid #495057;
+            padding-bottom: 0.5rem;
+            margin-bottom: 1rem;
+        }
+        .sidebar ul {
+            list-style: none;
+            padding-left: 0;
+        }
+        .sidebar li {
+            margin-bottom: 0.75rem;
+            font-size: 0.95rem;
+        }
+    </style>
+</head>
+<body>
+<div class="container-fluid py-5">
+    <div class="row">
+        
+        <div class="col-md-3 d-none d-lg-block">
+            <div class="sidebar">
+                <h5 class="text-primary"><i class="bi bi-list-ol"></i> 사용 방법</h5>
+                <ul>
+                    <li>**1단계: 대본 입력**
+                        <ul>
+                            <li>- 각 문장을 엔터(Enter)로 구분합니다.</li>
+                            <li>- 캐릭터는 `캐릭터이름: 대사` 형식으로 씁니다. (예: `철수: 안녕`)</li>
+                            <li>- 괄호 `(감정)`은 대사에서 자동으로 제거됩니다.</li>
+                        </ul>
+                    </li>
+                    <li>**2단계: 대본 분석**
+                        <ul>
+                            <li>- 대본 수정을 마친 후, **'대본 분석'** 버튼을 누릅니다.</li>
+                            <li>- 문장을 분석하고 캐릭터를 자동 분류합니다.</li>
+                        </ul>
+                    </li>
+                    <li>**3단계: 목소리 설정**
+                        <ul>
+                            <li>- 각 캐릭터별로 원하는 목소리, 속도, 높낮이 등을 조절합니다.</li>
+                            <li>- **'미리듣기'**로 확인하세요.</li>
+                        </ul>
+                    </li>
+                    <li>**4단계: 재생 제어**
+                        <ul>
+                            <li>- **'재생 (처음부터)'** 또는 대본을 클릭하여 커서를 놓은 뒤 **'재생 (선택 위치부터)'**를 누릅니다.</li>
+                        </ul>
+                    </li>
+                </ul>
+            </div>
+        </div>
+        
+        <div class="col-lg-6 col-md-12">
+            <div class="text-center mb-4">
+                <h1 class="display-5">🎙️ 웹 전용 나레이션 시스템 V23.1.9</h1>
+                <p class="lead text-secondary">일괄 변경 기능이 삭제되고, **0ms (쉼 없음)** 최대 속도만 유지됩니다.</p>
+            </div>
+
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h5 class="card-title">1. 대본 준비</h5>
+                    
+                    <div id="script-editor" rows="8"> 
+                        <p>해설: 오늘 아침은 유난히 맑았습니다.</p>
+                        <p>철수: 와, 날씨가 정말 좋네요!</p>
+                        <p>영희: 빨리 피크닉 가고 싶어요. (신나게)</p>
+                        <p>해설: 그들은 행복한 하루를 보냈습니다.</p>
+                        <p></p>
+                        <p>철수: 다시 해설해보시죠.</p>
+                    </div>
+                    
+                    <div class="d-flex gap-2 mt-2">
+                        <button id="analyze-btn" class="btn btn-primary w-50">대본 분석 및 캐릭터 설정 시작</button>
+                        <button id="edit-mode-btn" class="btn btn-outline-warning w-50" style="display:none;">🔓 대본 수정</button> 
+                    </div>
+                    <button id="start-play-btn" class="btn btn-success w-100 mt-2">▶ 재생 (선택 위치부터)</button> 
+                    
+                    <div class="d-flex gap-2 mt-2">
+                        <input type="file" id="load-file" class="form-control d-none" accept=".json">
+                        <button id="load-btn" class="btn btn-outline-info w-50">📂 불러오기</button>
+                        <button id="export-btn" class="btn btn-outline-success w-50">💾 내보내기</button>
+                    </div>
+                    <p class="note-small mt-2">참고: 괄호() 안의 감정 지시문은 읽지 않습니다. **대본의 각 문장을 엔터로 구분**해주세요.</p>
+                </div>
+            </div>
+
+            <div id="character-settings" class="card mb-4" style="display:none;">
+                <div class="card-body">
+                    <h5 class="card-title">2. 캐릭터별 목소리 설정 (한국어 음성만 표시)</h5>
+                    <div id="voice-warning" class="alert alert-warning" style="display:none;">
+                        ⚠️ 현재 브라우저/OS에 한국어 음성이 없습니다. (한국어 음성을 설치하거나, 다른 장치/브라우저를 사용하세요.)
+                    </div>
+                    <div id="character-list"></div>
+                </div>
+            </div>
+
+            <div id="player" class="card" style="display:none;">
+                <div class="card-body">
+                    <h5 class="card-title">3. 전체 재생 제어</h5>
+                    
+                    <label for="global-rate" class="slider-label">
+                        전체 재생 속도 (Global Rate) 
+                        <span id="global-rate-value" class="badge text-bg-secondary">1.00</span>
+                    </label>
+                    <input type="range" id="global-rate" min="0.1" max="4" step="0.01" value="1" class="form-range mb-3">
+                    
+                    <label for="sentence-pause-ms" class="slider-label">
+                        문장 간 기본 지연 시간 (ms) 
+                        <span id="sentence-pause-ms-value" class="badge text-bg-secondary">0</span>
+                    </label>
+                    <input type="range" id="sentence-pause-ms" min="0" max="3000" step="50" value="0" class="form-range mb-3">
+
+                    <div class="d-flex gap-2">
+                        <button id="play-btn" class="btn btn-success w-50">▶ 재생 (처음부터)</button>
+                        <button id="pause-btn" class="btn btn-warning w-25">⏸ 일시정지</button>
+                        <button id="stop-btn" class="btn btn-danger w-25">⏹ 정지</button>
+                    </div>
+                    <div id="status-area" class="alert alert-secondary mt-3">
+                        <strong>상태:</strong> <span id="status-text">대기 중</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3 d-none d-lg-block">
+            <div class="sidebar">
+                <h5 class="text-success"><i class="bi bi-lightbulb-fill"></i> 핵심 팁 & 참고 사항</h5>
+                <ul>
+                    <li>**스크롤 고정 기능**
+                        <ul>
+                            <li>- **재생 중에도 스크롤이 자동으로 움직이지 않습니다.** 사용자가 원하는 대본 위치를 직접 보면서 작업할 수 있습니다.</li>
+                        </ul>
+                    </li>
+                    <li>**감정 연출**
+                        <ul>
+                            <li>- **'슬픔'** : **속도/높낮이/볼륨**을 모두 낮춥니다.</li>
+                            <li>- **'기쁨'** : **속도/높낮이**를 높게 설정합니다.</li>
+                        </ul>
+                    </li>
+                    <li>**세부 조정**
+                        <ul>
+                            <li>- 문장 사이의 **지연 시간(ms)**을 조절하여 호흡을 연출합니다. (**0ms로 단축됨**)</li>
+                            <li>- **글로벌 속도**로 전체 재생 속도를 일괄 변경합니다.</li>
+                        </ul>
+                    </li>
+                    <li>**문제 발생 시**
+                        <ul>
+                            <li>- 소리가 나지 않을 경우, **브라우저를 재시작**하거나 **다른 브라우저(크롬, 엣지 등)**로 시도해 보세요.</li>
+                        </ul>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Web Speech API 기반 나레이션 시스템 V23.1.9 (일괄 변경 기능 삭제)
+    const synth = window.speechSynthesis;
+    let availableVoices = [];
+    let analyzedLines = []; 
+    let lastAnalyzedText = ''; 
+    let isStopping = false; 
+    let currentPlaybackIndex = 0; // 다음에 재생할 문장의 인덱스
+
+    // DOM 요소
+    const scriptEditor = document.getElementById('script-editor');
+    const analyzeBtn = document.getElementById('analyze-btn');
+    const startPlayBtn = document.getElementById('start-play-btn'); 
+    const characterSettingsDiv = document.getElementById('character-settings');
+    const characterListDiv = document.getElementById('character-list');
+    const playerDiv = document.getElementById('player');
+    const playBtn = document.getElementById('play-btn');
+    const pauseBtn = document.getElementById('pause-btn');
+    const stopBtn = document.getElementById('stop-btn');
+    const statusText = document.getElementById('status-text');
+    const voiceWarning = document.getElementById('voice-warning');
+    const loadBtn = document.getElementById('load-btn');
+    const loadFile = document.getElementById('load-file');
+    const exportBtn = document.getElementById('export-btn');
+    const globalRateSlider = document.getElementById('global-rate');
+    const globalRateValueSpan = document.getElementById('global-rate-value');
+    const sentencePauseMsSlider = document.getElementById('sentence-pause-ms'); 
+    const sentencePauseMsValueSpan = document.getElementById('sentence-pause-ms-value');
+    const editModeBtn = document.getElementById('edit-mode-btn');
+
+    // 대본 잠금 상태
+    let isScriptLocked = false; 
+
+    function initialize() {
+        loadVoices();
+        synth.onvoiceschanged = loadVoices;
+        analyzeBtn.addEventListener('click', analyzeScript);
+        
+        // 초기 상태: 편집 가능
+        scriptEditor.contentEditable = 'true';
+        editModeBtn.style.display = 'none'; 
+        editModeBtn.addEventListener('click', unlockScript);
+        
+        // 재생 (선택 위치부터) 버튼
+        startPlayBtn.addEventListener('click', () => {
+            const selection = window.getSelection();
+            let startCharIndex = 0;
+            if (selection.rangeCount > 0) {
+                const range = selection.getRangeAt(0);
+                const startNode = range.startContainer;
+                const pElement = startNode.closest('p');
+                
+                let pIndex = -1;
+                if (pElement) {
+                    pIndex = Array.from(scriptEditor.querySelectorAll('p')).findIndex(p => p === pElement);
+                    startCharIndex = range.startOffset; 
+                }
+                
+                if (pIndex !== -1) {
+                    let runningCharCount = 0;
+                    for(let i = 0; i < pIndex; i++) {
+                        // 각 문단 끝에 줄바꿈 문자 1개를 가정 (+1)
+                        runningCharCount += scriptEditor.querySelectorAll('p')[i].innerText.length + 1; 
+                    }
+                    startCharIndex = runningCharCount + startCharIndex; 
+                }
+            }
+
+            let startIndex = analyzedLines.findIndex(line => 
+                line.startIndex <= startCharIndex && line.endIndex >= startCharIndex
+            );
+            
+            if (startIndex === -1 || analyzedLines[startIndex].text.length === 0) startIndex = 0; 
+            
+            currentPlaybackIndex = startIndex; 
+            playNarration(); 
+        });
+
+        // 💡 [핵심] Play 버튼 로직 (재생/일시정지/재개-재시작)
+        playBtn.addEventListener('click', () => {
+             if (scriptEditor.innerText.trim() !== lastAnalyzedText.trim()) {
+                statusText.innerHTML = '❌ 재생 실패: 대본이 수정되었습니다. **"대본 분석"**을 먼저 눌러주세요.';
+                return;
+            }
+            
+            if (synth.speaking && !synth.paused) {
+                // Click 2: 재생 중일 때 -> 일시정지 (Pause)
+                synth.pause();
+                statusText.textContent = '일시정지됨. 이어서 재생할 수 있습니다.'; 
+                updatePlayerControls();
+                
+            } else if (synth.paused) {
+                // Click 3: 일시정지 중일 때 -> 재개 (Resume)
+                // 불안정한 synth.resume() 대신, 현재 문장을 취소하고 다시 재생 시작
+                synth.cancel(); 
+                isStopping = false; 
+
+                playNarration(); 
+
+                statusText.textContent = '재생 재개 (현재 문장 처음부터 다시 시작)'; 
+                updatePlayerControls();
+                
+            } else {
+                // Click 1 또는 정지 상태: 재생 중이 아닐 때 (처음부터 재생)
+                currentPlaybackIndex = 0; 
+                playNarration(); 
+            }
+        });
+        
+        // Pause 버튼은 Play 버튼이 Pause 기능을 겸하므로, 상태가 Speaking일 때는 Disabled됨.
+        pauseBtn.addEventListener('click', () => {
+            if(synth.speaking && !synth.paused) {
+                synth.pause();
+                statusText.textContent = '일시정지됨. 이어서 재생할 수 있습니다.'; 
+            }
+        });
+        
+        // 정지 버튼 로직
+        stopBtn.addEventListener('click', () => {
+            synth.cancel(); 
+            isStopping = true; 
+            
+            removeHighlight(); 
+            removeCurrentLineClass();
+            
+            currentPlaybackIndex = 0; 
+            statusText.textContent = '재생이 중단되었습니다. (처음부터 다시 시작)';
+            updatePlayerControls(); 
+            checkScriptModification(); 
+        });
+
+        // 스페이스바 재생/일시정지 기능 
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'Space' || e.keyCode === 32) {
+                // 입력 필드에서는 기본 동작 유지
+                if (e.target.nodeName === 'INPUT' || e.target.nodeName === 'TEXTAREA' || (e.target.isContentEditable && e.target.isContentEditable === 'true')) {
+                    return; 
+                }
+                
+                e.preventDefault(); 
+                
+                if (synth.speaking) {
+                    if (synth.paused) {
+                        // 일시정지 상태면 -> 재개 (Web API resume 사용)
+                        synth.resume();
+                        isStopping = false; 
+                        statusText.textContent = '재생 재개'; 
+                    } else {
+                        // 재생 중이면 -> 일시정지
+                        synth.pause();
+                        statusText.textContent = '일시정지됨. 이어서 재생할 수 있습니다.'; 
+                    }
+                } else if (analyzedLines.length > 0 && lastAnalyzedText.trim() === scriptEditor.innerText.trim()) {
+                    // 재생 중이 아닐 때 (정지 상태거나 지연 시간 중일 때) -> 현재 인덱스부터 재생 시작
+                    isStopping = false; 
+                    playNarration(); 
+                } else {
+                    // 분석이 안 되었거나 대본이 수정된 상태면 안내
+                     if (lastAnalyzedText.trim() !== scriptEditor.innerText.trim()) {
+                         statusText.innerHTML = '❌ 재생 실패: 대본이 수정되었습니다. **"대본 분석"**을 먼저 눌러주세요.';
+                     } else if (analyzedLines.length === 0) {
+                         statusText.textContent = '대본 분석이 필요합니다.';
+                     }
+                }
+                updatePlayerControls();
+            }
+        });
+
+        loadBtn.addEventListener('click', () => loadFile.click());
+        loadFile.addEventListener('change', loadSettingsFromFile);
+        exportBtn.addEventListener('click', exportSettingsToFile);
+        
+        attachSingleSliderHandler(globalRateSlider, globalRateValueSpan);
+        attachSingleSliderHandler(sentencePauseMsSlider, sentencePauseMsValueSpan);
+
+        scriptEditor.addEventListener('input', checkScriptModification);
+
+        setInterval(updatePlayerControls, 100); 
+        synth.onresume = updatePlayerControls;
+        synth.onpause = updatePlayerControls;
+        
+        // 초기 분석 (초기 대본으로)
+        analyzeScript();
+    }
+    
+    function unlockScript() {
+        if (isScriptLocked) {
+            synth.cancel(); 
+            isScriptLocked = false;
+            scriptEditor.contentEditable = 'true';
+            editModeBtn.style.display = 'none';
+            analyzeBtn.classList.remove('disabled');
+            
+            lastAnalyzedText = ''; 
+            checkScriptModification(); 
+            
+            statusText.textContent = '대본 편집이 해제되었습니다. 자유롭게 수정 후 "대본 분석"을 다시 눌러주세요.';
+        }
+    }
+
+
+    function checkScriptModification() {
+        if (!synth.speaking && !isScriptLocked) {
+            const currentText = scriptEditor.innerText.trim();
+            if (currentText !== lastAnalyzedText.trim() && lastAnalyzedText !== '') {
+                 statusText.innerHTML = '⚠️ 대본이 수정되었습니다. **재생 전 "대본 분석"** 버튼을 눌러주세요.';
+                 analyzeBtn.classList.remove('btn-primary');
+                 analyzeBtn.classList.add('btn-danger');
+            } else if (currentText === lastAnalyzedText.trim() && analyzedLines.length > 0) {
+                 statusText.textContent = '대본 분석 완료. 캐릭터 설정을 확인하세요.';
+                 analyzeBtn.classList.add('btn-primary');
+                 analyzeBtn.classList.remove('btn-danger');
+            } else if (analyzedLines.length === 0 && currentText.length > 0) {
+                 statusText.textContent = '대기 중. "대본 분석" 버튼을 눌러주세요.';
+            }
+        }
+    }
+
+
+    function attachSingleSliderHandler(slider, valueSpan) {
+        if (slider && valueSpan) {
+            valueSpan.textContent = parseFloat(slider.value).toFixed(slider.step === '1' || slider.step === '50' ? 0 : 2); 
+            slider.addEventListener('input', () => {
+                valueSpan.textContent = parseFloat(slider.value).toFixed(slider.step === '1' || slider.step === '50' ? 0 : 2);
+            });
+        }
+    }
+
+    function updatePlayerControls() {
+        if (synth.speaking && !synth.paused) {
+            playBtn.innerHTML = '⏸ 일시정지'; // Play 버튼이 Pause 기능 겸함
+            playBtn.classList.add('btn-warning');
+            playBtn.classList.remove('btn-success', 'btn-secondary');
+            
+            pauseBtn.innerHTML = '⏸ 일시정지'; 
+            pauseBtn.classList.add('disabled');
+            stopBtn.classList.remove('disabled');
+            
+        } else if (synth.paused) {
+            playBtn.innerHTML = '▶ 이어서 재생'; 
+            playBtn.classList.add('btn-success');
+            playBtn.classList.remove('btn-warning', 'btn-secondary');
+            
+            pauseBtn.innerHTML = '일시정지됨 <i class="bi bi-pause-fill"></i>';
+            pauseBtn.classList.add('disabled');
+            stopBtn.classList.remove('disabled');
+            
+        } else {
+            playBtn.innerHTML = '▶ 재생 (처음부터)';
+            playBtn.classList.add('btn-success');
+            playBtn.classList.remove('btn-warning', 'btn-secondary');
+            
+            pauseBtn.innerHTML = '⏸ 일시정지'; 
+            pauseBtn.classList.add('disabled');
+            stopBtn.classList.add('disabled');
+        }
+    }
+
+
+    function loadVoices() {
+        availableVoices = synth.getVoices() || [];
+    }
+    
+    // 파일 로드 로직 (변경 없음)
+    function loadSettingsFromFile(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+            try {
+                const settings = JSON.parse(ev.target.result);
+                const scriptHtml = settings.script.split('\n').map(line => `<p>${escapeHtml(line)}</p>`).join('');
+                scriptEditor.innerHTML = scriptHtml; 
+
+                analyzeScript(() => {
+                    Object.keys(settings.characters || {}).forEach(name => {
+                        const charSet = settings.characters[name];
+                        const voiceSel = document.getElementById(`voice-for-${name}`);
+                        const pitchSel = document.getElementById(`pitch-for-${name}`);
+                        const rateSel = document.getElementById(`rate-for-${name}`);
+                        const volumeSel = document.getElementById(`volume-for-${name}`);
+                        
+                        if (voiceSel && charSet.voice) voiceSel.value = charSet.voice; 
+                        if (pitchSel && charSet.pitch !== undefined) pitchSel.value = charSet.pitch;
+                        if (rateSel && charSet.rate !== undefined) rateSel.value = charSet.rate;
+                        if (volumeSel && charSet.volume !== undefined) volumeSel.value = charSet.volume;
+                        
+                        const pitchValueSpan = document.getElementById(`pitch-value-for-${name}`);
+                        const rateValueSpan = document.getElementById(`rate-value-for-${name}`);
+                        const volumeValueSpan = document.getElementById(`volume-value-for-${name}`);
+                        if (pitchValueSpan) pitchValueSpan.textContent = parseFloat(pitchSel.value).toFixed(2);
+                        if (rateValueSpan) rateValueSpan.textContent = parseFloat(rateSel.value).toFixed(2);
+                        if (volumeValueSpan) volumeValueSpan.textContent = parseFloat(volumeSel.value).toFixed(2);
+                    });
+                    
+                    if (settings.globalRate !== undefined) globalRateSlider.value = settings.globalRate; 
+                    globalRateValueSpan.textContent = parseFloat(globalRateSlider.value).toFixed(2);
+                    
+                    if (settings.sentencePauseMs !== undefined) sentencePauseMsSlider.value = settings.sentencePauseMs; 
+                    sentencePauseMsValueSpan.textContent = parseFloat(sentencePauseMsSlider.value).toFixed(0);
+                    
+                    checkScriptModification();
+                });
+                alert("📂 JSON 파일에서 불러왔습니다.");
+            } catch (err) {
+                alert("❌ JSON 파일을 불러오는데 실패했습니다.");
+            }
+        };
+        reader.readAsText(file, "utf-8");
+    }
+
+    // 파일 저장 로직 (변경 없음)
+    function exportSettingsToFile() {
+        const settings = {
+            script: scriptEditor.innerText, 
+            globalRate: parseFloat(globalRateSlider.value), 
+            sentencePauseMs: parseFloat(sentencePauseMsSlider.value),
+            characters: {}
+        };
+        
+        Array.from(document.querySelectorAll('.character-card')).forEach(card => {
+            // Note: The structure needs adjustment if we rely on h6 strong to get the name, 
+            // but in the single-card rendering, this is reliable.
+            const name = card.querySelector('h6 strong').textContent;
+            const voiceSel = document.getElementById(`voice-for-${name}`);
+            const pitchSel = document.getElementById(`pitch-for-${name}`);
+            const rateSel = document.getElementById(`rate-for-${name}`);
+            const volumeSel = document.getElementById(`volume-for-${name}`);
+            
+            settings.characters[name] = {
+                voice: voiceSel ? voiceSel.value : '',
+                pitch: pitchSel ? parseFloat(pitchSel.value) : 1,
+                rate: rateSel ? parseFloat(rateSel.value) : 1,
+                volume: volumeSel ? parseFloat(volumeSel.value) : 1,
+            };
+        });
+
+        const blob = new Blob([JSON.stringify(settings, null, 2)], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "narration-settings.json";
+        a.click();
+        URL.revokeObjectURL(url);
+        alert("💾 JSON 파일로 내보냈습니다.");
+    }
+
+
+    function removeCurrentLineClass() {
+        scriptEditor.querySelectorAll('.current-line').forEach(p => {
+            p.classList.remove('current-line');
+        });
+    }
+
+    function removeHighlight() {
+        scriptEditor.querySelectorAll('.highlight').forEach(span => {
+            const parent = span.parentNode;
+            while (span.firstChild) {
+                parent.insertBefore(span.firstChild, span);
+            }
+            parent.removeChild(span);
+        });
+        scriptEditor.normalize(); 
+    }
+    
+    function scrollAndHighlightSentence(lineIndex) {
+        removeHighlight();
+        removeCurrentLineClass();
+        
+        const lineData = analyzedLines[lineIndex];
+        if (!lineData) return;
+        
+        const lineElement = scriptEditor.querySelectorAll('p')[lineData.domIndex];
+
+        if (lineElement) {
+            lineElement.classList.add('current-line');
+        }
+    }
+
+    function highlightWord(lineIndex, charIndex, charLength) {
+        removeHighlight();
+        
+        const lineData = analyzedLines[lineIndex];
+        if (!lineData) return;
+        
+        const lineElement = scriptEditor.querySelectorAll('p')[lineData.domIndex];
+
+        if (!lineElement) return;
+
+        let currentNode = lineElement.firstChild;
+        let runningIndex = 0;
+        
+        while (currentNode) {
+            if (currentNode.nodeType === Node.TEXT_NODE) {
+                const nodeText = currentNode.textContent;
+                const nodeLength = nodeText.length;
+                
+                if (runningIndex <= charIndex && runningIndex + nodeLength >= charIndex + charLength) {
+                    const startInNode = charIndex - runningIndex;
+                    const endInNode = startInNode + charLength;
+
+                    if (startInNode < nodeLength && endInNode <= nodeLength) {
+                        const range = document.createRange();
+                        range.setStart(currentNode, startInNode);
+                        range.setEnd(currentNode, endInNode);
+
+                        const span = document.createElement('span');
+                        span.className = 'highlight';
+                        range.surroundContents(span);
+                        
+                        return;
+                    }
+                }
+                runningIndex += nodeLength;
+            }
+            currentNode = currentNode.nextSibling;
+        }
+    }
+
+
+    function analyzeScript(callback) {
+        if (isScriptLocked) {
+            scriptEditor.contentEditable = 'true';
+            isScriptLocked = false;
+        }
+
+        const pElements = scriptEditor.querySelectorAll('p');
+        
+        if (pElements.length === 0) { 
+            alert('대본을 입력해주세요!'); 
+            lastAnalyzedText = ''; 
+            return; 
+        }
+        
+        if (availableVoices.length === 0) {
+            loadVoices(); 
+        }
+
+        synth.cancel(); 
+        isStopping = true; 
+        currentPlaybackIndex = 0; 
+        setTimeout(() => isStopping = false, 100); 
+
+        const characters = new Map();
+        const characterColorMap = new Map();
+        let colorIndex = 0;
+        analyzedLines = [];
+        let runningIndex = 0;
+
+        pElements.forEach((pElement, domIndex) => {
+            const line = pElement.innerText;
+            const trimmedLine = line.trim();
+            
+            pElement.className = pElement.className.replace(/char-color-\d/g, '').trim(); 
+            pElement.classList.remove('script-line');
+            
+            let charName = '해설';
+            let content = trimmedLine;
+            let currentLineColorIndex = -1;
+
+            if (trimmedLine) {
+                const m = trimmedLine.match(/^([^:：]+)[：:]\s*(.*)/);
+                
+                if (m) {
+                    charName = m[1].trim();
+                    content = m[2].trim();
+                }
+                
+                const clean = content.replace(/\([^)]*\)/g, '').trim();
+                
+                if (charName && !characters.has(charName)) {
+                    characters.set(charName, { id: `char-${characters.size}`, firstText: clean }); 
+                    
+                    if (!characterColorMap.has(charName)) {
+                        characterColorMap.set(charName, colorIndex % 3); 
+                        colorIndex++;
+                    }
+                }
+                
+                if (characterColorMap.has(charName)) {
+                    currentLineColorIndex = characterColorMap.get(charName);
+                    pElement.classList.add(`char-color-${currentLineColorIndex}`);
+                }
+                
+                pElement.classList.add('script-line');
+
+
+                if (clean) analyzedLines.push({ 
+                    character: charName, 
+                    text: clean,
+                    originalLine: line,
+                    startIndex: runningIndex,
+                    endIndex: runningIndex + line.length, 
+                    domIndex: domIndex,
+                    colorIndex: currentLineColorIndex
+                });
+            } else {
+                 pElement.classList.add('script-line');
+            }
+            
+            runningIndex += line.length + 1; 
+        });
+
+        if (analyzedLines.length === 0) {
+            alert('대본에서 유효한 문장을 찾을 수 없습니다.');
+            characterSettingsDiv.style.display = 'none';
+            playerDiv.style.display = 'none';
+            statusText.textContent = '대본 분석 실패.';
+            lastAnalyzedText = ''; 
+            isStopping = false; 
+            return;
+        }
+        
+        Array.from(characters.keys()).forEach(name => {
+             characters.get(name).colorIndex = characterColorMap.get(name);
+        });
+        
+        lastAnalyzedText = scriptEditor.innerText.trim();
+
+        // 분석 성공 시 대본 편집 잠금 및 버튼 표시
+        scriptEditor.contentEditable = 'false';
+        isScriptLocked = true;
+        editModeBtn.style.display = 'block';
+        
+        renderCharacterSettings(Array.from(characters.keys()), characters);
+        characterSettingsDiv.style.display = 'block';
+        playerDiv.style.display = 'block';
+        statusText.textContent = '대본 분석 완료. 편집이 잠금되었습니다. 설정을 확인하세요.';
+        
+        if (callback) callback();
+    }
+    
+    /**
+     * @V23.1.9: 캐릭터 카드에서 체크박스를 삭제하고 V23.1.7 버전으로 복구
+     */
+    function renderCharacterSettings(characterNames, characterMap) {
+        characterListDiv.innerHTML = '';
+        const koreanVoices = availableVoices.filter(v => (v.lang || '').toLowerCase().startsWith('ko'));
+
+        if (koreanVoices.length === 0) {
+            voiceWarning.style.display = 'block';
+        } else {
+            voiceWarning.style.display = 'none';
+        }
+
+        const colorMap = ['#0d6efd', '#20c997', '#ffc107']; 
+
+        characterNames.forEach(name => {
+            const charData = characterMap.get(name);
+            const selectId = `voice-for-${name}`;
+            const pitchId = `pitch-for-${name}`;
+            const rateId = `rate-for-${name}`;
+            const volumeId = `volume-for-${name}`;
+            const previewId = `preview-for-${name}`;
+            
+            const colorClass = `char-color-${charData.colorIndex}`;
+            const cardColor = colorMap[charData.colorIndex];
+
+            let options = '';
+            if (koreanVoices.length > 0) {
+                options = koreanVoices.map((v, index) => { 
+                    const voiceIndex = availableVoices.indexOf(v);
+                    const selectedAttr = (index === 0) ? 'selected' : ''; 
+                    return `<option value="${voiceIndex}" ${selectedAttr}>${escapeHtml(v.name || 'unknown')} (${escapeHtml(v.lang || '')})</option>`;
+                }).join('');
+            } else {
+                options = `<option value="">(한국어 음성이 없습니다)</option>`;
+            }
+
+            const div = document.createElement('div');
+            div.className = `card character-card p-3 ${colorClass}`; 
+            div.innerHTML = `
+                <h6 class="mb-2"><strong>${escapeHtml(name)}</strong> <span style="font-size: 10px; color: ${cardColor}">●</span></h6>
+                <div class="input-group mb-2">
+                    <span class="input-group-text">목소리</span>
+                    <select id="${selectId}" class="form-select voice-select">${options}</select>
+                </div>
+                
+                <button class="btn btn-outline-secondary mb-3 w-100" id="${previewId}">
+                    <i class="bi bi-play-fill"></i> 첫 문장 미리듣기
+                </button>
+
+                <label class="slider-label">
+                    높낮이 (Pitch) 
+                    <span id="pitch-value-for-${name}" class="badge text-bg-secondary">1.00</span>
+                </label>
+                <input type="range" id="${pitchId}" min="0" max="2" step="0.01" value="1" class="form-range mb-2">
+                
+                <label class="slider-label">
+                    볼륨 (Volume)
+                    <span id="volume-value-for-${name}" class="badge text-bg-secondary">1.00</span>
+                </label>
+                <input type="range" id="${volumeId}" min="0" max="1" step="0.01" value="1" class="form-range mb-2">
+                
+                <label class="slider-label">
+                    속도 (Rate)
+                    <span id="rate-value-for-${name}" class="badge text-bg-secondary">1.00</span>
+                </label>
+                <input type="range" id="${rateId}" min="0.1" max="4" step="0.01" value="1" class="form-range">
+            `;
+            characterListDiv.appendChild(div);
+
+            document.getElementById(previewId).addEventListener('click', () => {
+                playSingleUtterance(name, charData.firstText);
+            });
+
+            attachSingleSliderHandler(document.getElementById(pitchId), document.getElementById(`pitch-value-for-${name}`));
+            attachSingleSliderHandler(document.getElementById(volumeId), document.getElementById(`volume-value-for-${name}`));
+            attachSingleSliderHandler(document.getElementById(rateId), document.getElementById(`rate-value-for-${name}`));
+        });
+    }
+
+    
+    function playSingleUtterance(characterName, text) {
+        isStopping = false; 
+        const voiceSel = document.getElementById(`voice-for-${characterName}`);
+        const pitchSel = document.getElementById(`pitch-for-${characterName}`);
+        const rateSel = document.getElementById(`rate-for-${characterName}`);
+        const volumeSel = document.getElementById(`volume-for-${characterName}`);
+        const globalRate = parseFloat(globalRateSlider.value);
+
+        if (!voiceSel || voiceSel.value === "") {
+            alert('선택 가능한 한국어 목소리가 없습니다.');
+            return;
+        }
+
+        const u = new SpeechSynthesisUtterance(text);
+        const idx = parseInt(voiceSel.value);
+        if (!isNaN(idx) && availableVoices[idx]) u.voice = availableVoices[idx];
+
+        u.pitch = pitchSel ? parseFloat(pitchSel.value) : 1;
+        u.rate = (rateSel ? parseFloat(rateSel.value) : 1) * globalRate;
+        u.volume = volumeSel ? parseFloat(volumeSel.value) : 1;
+
+        synth.cancel();
+        removeHighlight();
+        removeCurrentLineClass();
+        
+        u.onend = () => {
+            isStopping = false;
+            statusText.textContent = `[${characterName}] 미리듣기 완료`; 
+            updatePlayerControls();
+        };
+
+        synth.speak(u);
+        statusText.textContent = `[${characterName}] 미리듣기: ${text.substring(0, 30)}...`;
+        updatePlayerControls();
+    }
+
+    /**
+     * @V23.1.7: 문장 간 지연 시간 기본값 100ms -> 0ms로 단축
+     * V23.1.9에서도 이 로직은 유지됨.
+     */
+    function playNarration() {
+        if (scriptEditor.innerText.trim() !== lastAnalyzedText.trim()) {
+            statusText.innerHTML = '❌ 재생 실패: 대본이 수정되었습니다. **"대본 분석"**을 먼저 눌러주세요.';
+            return;
+        }
+        
+        if (analyzedLines.length === 0) {
+            analyzeScript(() => playNarration()); 
+            return;
+        }
+
+        // 1. 재생 종료 조건
+        if (currentPlaybackIndex >= analyzedLines.length) {
+            removeCurrentLineClass();
+            statusText.textContent = '✅ 재생 완료'; 
+            updatePlayerControls();
+            checkScriptModification(); 
+            currentPlaybackIndex = 0; 
+            return;
+        }
+        
+        // 2. 일시정지 상태 체크 (재생을 재개하는 것은 Play 버튼에서 처리)
+        if (synth.paused) {
+            return;
+        }
+        
+        // 3. 중단 상태 체크 (이 시점에서 isStopping은 false여야 함)
+        if (isStopping) {
+            return; 
+        }
+
+        // 4. 새로운 문장 재생
+        const lineIndex = currentPlaybackIndex; 
+        const line = analyzedLines[lineIndex];
+        const u = new SpeechSynthesisUtterance(line.text);
+        const voiceSel = document.getElementById(`voice-for-${line.character}`);
+        const pitchSel = document.getElementById(`pitch-for-${line.character}`);
+        const rateSel = document.getElementById(`rate-for-${line.character}`);
+        const volumeSel = document.getElementById(`volume-for-${line.character}`);
+        const globalRate = parseFloat(globalRateSlider.value);
+
+        // 목소리 및 설정 적용
+        if (voiceSel && voiceSel.value !== "") {
+            const idxVoice = parseInt(voiceSel.value);
+            if (!isNaN(idxVoice) && availableVoices[idxVoice]) u.voice = availableVoices[idxVoice];
+        }
+        if (pitchSel) u.pitch = parseFloat(pitchSel.value);
+        if (rateSel) u.rate = parseFloat(rateSel.value) * globalRate; 
+        if (volumeSel) u.volume = parseFloat(volumeSel.value);
+        
+        u.lineIndex = lineIndex; 
+
+        // 이벤트 핸들러
+        u.onstart = () => { 
+            statusText.textContent = `[${line.character}] ${line.text.substring(0, 30)}...`; 
+            scrollAndHighlightSentence(lineIndex); 
+            updatePlayerControls();
+        };
+        
+        u.onboundary = (event) => {
+            if (event.name === 'word') {
+                highlightWord(lineIndex, event.charIndex, event.charLength); 
+            }
+        };
+
+        u.onend = () => {
+            removeHighlight();
+            
+            currentPlaybackIndex++; 
+            
+            if (isStopping) return; 
+
+            const defaultPause = parseFloat(sentencePauseMsSlider.value);
+
+            if (currentPlaybackIndex < analyzedLines.length) {
+                // 문장 간 지연 시간 후 다음 문장 재생 호출
+                if (defaultPause > 0) {
+                    statusText.textContent = `⏸ ${defaultPause}ms 지연 후 다음 문장 재생...`;
+                } else {
+                    // 0ms일 경우 지연 메시지 없이 바로 다음 문장 호출
+                    statusText.textContent = `▶ 다음 문장 즉시 재생...`; 
+                }
+                
+                setTimeout(() => {
+                    // setTimeout이 실행될 때도 다시 한번 정지 상태 체크
+                    if (!synth.paused && !isStopping) { 
+                        playNarration(); 
+                    }
+                }, defaultPause);
+            } else {
+                // 모든 문장 재생 완료 후 종료 처리 로직
+                removeCurrentLineClass();
+                statusText.textContent = '✅ 재생 완료'; 
+                updatePlayerControls();
+                checkScriptModification(); 
+                currentPlaybackIndex = 0;
+            }
+        };
+        
+        u.onerror = (event) => {
+            console.error('Speech Synthesis Error:', event);
+            statusText.textContent = `❌ 음성 합성 오류: ${event.error}. 다음 문장으로 건너뜁니다.`;
+            if (!isStopping) { 
+                currentPlaybackIndex++; 
+                playNarration(); 
+            }
+        }
+
+        // 재생 시작
+        synth.speak(u);
+        updatePlayerControls();
+    }
+
+
+    // --- Helper ---
+    function escapeHtml(str) {
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    initialize();
+</script>
+</body>
+</html>
